@@ -2,16 +2,19 @@ import datetime
 import threading
 import time
 
+import imageio
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from pathlib import Path
 import numpy as np
 from scipy.ndimage import distance_transform_edt
-from skimage import io, img_as_float, morphology, filters
+from skimage import io, img_as_float, morphology, filters, img_as_ubyte
 from skimage.feature import peak_local_max
 from skimage.measure import regionprops_table, label
 from skimage.morphology import watershed
+from skimage.exposure import adjust_gamma, exposure
+from skimage.transform import resize
 import pandas as pd
 
 from L3 import SystemsBuilder
@@ -99,14 +102,51 @@ class ImageSaver:
             data_dir = FileIO.get_data_folder(folder_prefix, data_folder)
         else:
             data_dir = data_folder
-        for time_id,image in zip(self.times,self.images):
+        for time_id, image in zip(self.times, self.images):
 
             if timestamp:
-                adj_prefix =image_prefix+ " "+time_id
+                adj_prefix = image_prefix + " " + time_id
             else:
                 adj_prefix = image_prefix
             data_file = FileIO.get_data_filename(adj_prefix, data_dir, extension='.tiff')
             io.imsave(data_file, image)
+
+    def save_gif(self, file_prefix, data_folder, correction=True,
+                 scale=1, percentile_low=.5, percentile_high=99.5):
+        """
+        Save images to a .gif format for easy comparison
+        :param file_prefix: what the gif file should start with
+        :param data_folder: where the gif should be saved to
+        :param correction: bool, whether to rescale and resize images
+        :param scale: (0,1] factor to scale the image by
+        :param percentile_low: (0,1) lower percentile of pixels to cut the lower threshold at
+        :param percentile_high: (0,1] upper percentile of pixesl to cut the upper threshold at
+        :return: None
+        """
+        if data_folder is None:
+            data_folder = self.data_folder
+
+        data_dir = data_folder
+        if correction:
+            new_images = [img_as_ubyte(scale_and_size_image(x, scale, percentile_low, percentile_high)) for x in self.images]
+        else:
+            new_images = self.images
+        data_file = FileIO.get_data_filename(file_prefix, data_dir, extension='.gif')
+        make_gif(new_images, data_file)
+        return data_file
+
+def make_gif(imgs, file_name):
+    imageio.mimsave(file_name, imgs)
+    return file_name
+
+
+def scale_and_size_image(image, scalar, percentile_low, percentile_high):
+    image = img_as_float(image)
+    resize_shape = [int(x * scalar) for x in image.shape]
+    image = resize(image, resize_shape)
+    low, p98 = np.percentile(image, [percentile_low, percentile_high])
+    img_rescale = exposure.rescale_intensity(image, in_range=(low, p98))
+    return img_rescale
 
 
 class Blob(object):

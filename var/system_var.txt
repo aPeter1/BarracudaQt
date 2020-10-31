@@ -1,2 +1,4 @@
 kinesis,"C:\\Program Files\\Thorlabs\\Kinesis"
 data_dir,r"C:\Users\NikonTE300CE\Documents\Data"
+offset_x,0.158
+offset_y,0.804
