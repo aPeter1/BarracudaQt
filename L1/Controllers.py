@@ -354,6 +354,7 @@ class PriorController(ControllerAbstraction):
         """
         with self.lock:
             self._read_lines()
+
             self._serial.write("{}".format(command).encode())
             time.sleep(0.2)
             response = self._read_lines()
